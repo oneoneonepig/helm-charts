@@ -793,3 +793,70 @@ labels:
 '''
     r = helm_template(config)
     assert r['statefulset'][uname]['metadata']['labels']['app.kubernetes.io/name'] == 'elasticsearch'
+
+def test_keystore_enable():
+    config = ''
+
+    r = helm_template(config)
+    s = r['statefulset'][uname]['spec']['template']['spec']
+
+    assert s['volumes'] == None
+
+    config = '''
+keystore:
+  enabled: true
+    '''
+
+    r = helm_template(config)
+    s = r['statefulset'][uname]['spec']['template']['spec']
+
+    assert {'name': 'keystore', 'emptyDir': {}} in s['volumes']
+
+def test_keystore_init_container():
+    config = ''
+
+    r = helm_template(config)
+    i = r['statefulset'][uname]['spec']['template']['spec']['initContainers'][-1]
+
+    assert i['name'] != 'keystore'
+
+    config = '''
+keystore:
+  enabled: true
+    '''
+
+    r = helm_template(config)
+    i = r['statefulset'][uname]['spec']['template']['spec']['initContainers'][-1]
+
+    assert i['name'] == 'keystore'
+
+def test_keystore_mount():
+    config = '''
+keystore:
+  enabled: true
+'''
+
+    r = helm_template(config)
+    s = r['statefulset'][uname]['spec']['template']['spec']
+    assert s['containers'][0]['volumeMounts'][-1] == {
+        'mountPath': '/usr/share/elasticsearch/config/elasticsearch.keystore',
+        'subPath': 'elasticsearch.keystore',
+        'name': 'keystore'
+    }
+    
+def test_keystore_bootstrap():
+    config = '''
+keystore:
+  enabled: true
+  strings:
+    bootstrap.password: '${ELASTIC_PASSWORD}'
+    xpack.notification.slack.account.monitoring.secure_url: "https://hooks.slack.com/services/asdasdasd/asdasdas/asdasd"
+  files:
+    gcs.client.default.credentials_file: /usr/share/elasticsearch/config/gcs-credentials.json
+'''
+    r = helm_template(config)
+    i = r['statefulset'][uname]['spec']['template']['spec']['initContainers'][1]
+    command = " ".join(i['command'])
+    assert 'echo "${ELASTIC_PASSWORD}" | elasticsearch-keystore add -x "bootstrap.password"' in command
+    assert 'echo "https://hooks.slack.com/services/asdasdasd/asdasdas/asdasd" | elasticsearch-keystore add -x "xpack.notification.slack.account.monitoring.secure_url"' in command
+    assert 'elasticsearch-keystore add-file "gcs.client.default.credentials_file" "/usr/share/elasticsearch/config/gcs-credentials.json"' in command

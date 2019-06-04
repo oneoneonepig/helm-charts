@@ -111,6 +111,7 @@ helm install --name elasticsearch elastic/elasticsearch --set imageTag=7.2.0
 | `schedulerName`            | Name of the [alternate scheduler](https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/#specify-schedulers-for-pods)                                                                                                                                                                          | `nil`                                                                                                                     |
 | `masterTerminationFix`     | A workaround needed for Elasticsearch < 7.2.0 to prevent master status being lost during restarts [#63](https://github.com/elastic/helm-charts/issues/63)                                                                                                                                                                  | `false`                                                                                                                   |
 | `lifecycle`                | Allows you to add lifecycle configuration. See [values.yaml](./values.yaml) for an example of the formatting.                                                                                                                                                                                                              | `{}`                                                                                                                      |
+| `keystore`                 | Allows you map Kubernetes secrets into the keystore. See the [config example](/elasticsearch/examples/config/values.yaml) and [how to use the keystore](#how-to-use-the-keystore)                                                                                                                                          | `enabled: false`                                                                                                          |
 
 ## Try it out
 
@@ -171,18 +172,9 @@ There are a couple reasons we recommend this.
 
 #### How to use the keystore?
 
-1. Create a Kubernetes secret containing the [keystore](https://www.elastic.co/guide/en/elasticsearch/reference/current/secure-settings.html)
-   ```
-   $ kubectl create secret generic elasticsearch-keystore --from-file=./elasticsearch.keystore
-   ```
-2. Mount it into the container via `secretMounts`
-   ```
-   secretMounts:
-   - name: elasticsearch-keystore
-     secretName: elasticsearch-keystore
-     path: /usr/share/elasticsearch/config/elasticsearch.keystore
-     subPath: elasticsearch.keystore
-   ```
+Take a look a the [config example](/elasticsearch/examples/config/values.yaml) which has a tested version of adding strings and files to the keystore.
+
+If you have basic authentication enabled you will also need to set `keystore.strings.bootstrap.password: '${ELASTIC_PASSWORD}'`.
 
 #### How to enable snapshotting?
 
